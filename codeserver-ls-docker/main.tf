@@ -43,52 +43,6 @@ data "coder_parameter" "enable_docker" {
   default     = true
 }
 
-data "coder_parameter" "persist_docker" {
-  type        = "bool"
-  name        = "Persist Docker"
-  mutable     = true
-  default     = false
-  description = <<-EOF
-  Preserve Docker data across restarts? (true/false)
-
-  This has no effect if 'enable_docker' is false.
-
-  Set this to false (default) if the Docker data should be ephemeral.
-  All Docker data (images, build cache, containers, networks, etc) will be
-  lost every time the workspace is stopped. Docker will have access to about
-  16Gi of storage.
-
-  Set this to true to persist Docker data under `$HOME`, using the workspace
-  quota. This can consume large amounts of storage, and needs to be
-  maintained inside the workspace using the appropriate `docker` commands.
-
-  Some user configuration is normally stored under `$HOME`, and those files
-  are not affected by this setting and may not be preserved across restarts.
-  EOF
-}
-
-data "coder_parameter" "docker_version" {
-  name        = "Docker version"
-  type        = "string"
-  mutable     = true
-  description = <<-EOF
-    Docker package version to install from https://download.docker.com/linux/ubuntu/dists/jammy/pool/stable/amd64
-    (More information: https://docs.docker.com/engine/install/ubuntu/#install-from-a-package)
-    EOF
-  default     = "24.0.5-1"
-}
-
-data "coder_parameter" "docker_compose_version" {
-  name        = "Docker Compose version"
-  type        = "string"
-  mutable     = true
-  description = <<-EOF
-    Docker Compose package version to install from https://download.docker.com/linux/ubuntu/dists/jammy/pool/stable/amd64
-    (More information: https://docs.docker.com/engine/install/ubuntu/#install-from-a-package)
-    EOF
-  default     = "2.20.2-1"
-}
-
 data "coder_parameter" "user_shell" {
   name        = "User Shell"
   description = <<-EOF
@@ -110,7 +64,7 @@ data "coder_parameter" "dotfiles_uri" {
 
   This will be applied on every workstation start, and may overwrite existing
   files. If you prefer to run it only once, leave this blank and run
-  `/tmp/coder.??????/coder dotfiles URL` inside the workspace terminal instead.
+  `$HOME/bin/coder dotfiles URL` inside the workspace terminal instead.
   EOF
   default     = ""
 }
@@ -122,40 +76,27 @@ data "coder_parameter" "extra_package_list" {
   description = <<-EOF
   A list of Ubuntu packages to install.
 
-  Docker and docker-compose packages will be removed and replaced with upstream
-  packages.
-
   These packages are installed during every workspace startup and may cause delays
   before the workspace is available.
 
-  The default includes some basic command-line tools for networking, file viewing and
-  editing, plus the fish shell and Python 3. This takes approximately 2 minutes to install.
   EOF
-  default = jsonencode([
-    "python-is-python3",
-    "python3-minimal",
-    "python3-pip",
-    "dnsutils",
-    "diffstat",
-    "most",
-    "curl",
-    "wget",
-    "psmisc",
-    "vim-nox",
-    "clang-format",
-    "grc",
-    "fzy",
-    "netcat",
-    "fish",
-  ])
+  default     = jsonencode([])
+}
+
+data "coder_parameter" "image" {
+  type        = "string"
+  name        = "Docker Image"
+  description = "Docker image"
+  mutable     = true
+  default     = "ghcr.io/disconn3ct/docker-containers/code-server"
 }
 
 data "coder_parameter" "image_version" {
   type        = "string"
-  name        = "Linuxserver/Code-Server Docker Tag"
-  description = "Docker tag for LinuxServer/Code-Server"
+  name        = "Docker Image Tag"
+  description = "Docker image version"
   mutable     = true
-  default     = "latest"
+  default     = "main"
 }
 
 provider "kubernetes" {
@@ -169,16 +110,11 @@ resource "coder_agent" "main" {
   arch = "arm64"
   dir  = "/config/workspace"
   # Runs as `abc` with the user's default shell
-  startup_script = data.coder_parameter.dotfiles_uri.value != "" ? "/tmp/coder.??????/coder dotfiles -y ${data.coder_parameter.dotfiles_uri.value}" : null
+  startup_script = data.coder_parameter.dotfiles_uri.value != "" ? "$HOME/bin/coder dotfiles -y ${data.coder_parameter.dotfiles_uri.value}" : null
 
   env = {
     "CODER_TELEMETRY" = "false"
-    # So Terminal and SSH can use docker:
-    "DOCKER_TLS_CERTDIR" = tobool(data.coder_parameter.enable_docker.value) ? "/shared" : null
-    "DOCKER_CONFIG"      = tobool(data.coder_parameter.enable_docker.value) ? "/shared/client/" : null
-    "DOCKER_HOST"        = tobool(data.coder_parameter.enable_docker.value) ? "localhost:2376" : null
-    "DOCKER_TLS"         = tobool(data.coder_parameter.enable_docker.value) ? "true" : null
-    # And to align with the IDE:
+    # To align with the IDE:
     "PATH"   = "/config/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/config/go/bin:/config/.krew/bin:/config/.local/bin"
     "GOPATH" = "/config/go"
   }
@@ -191,7 +127,7 @@ resource "coder_agent" "main" {
   metadata {
     display_name = "CPU Usage"
     key          = "0_cpu_usage"
-    script       = "/tmp/coder.??????/coder stat cpu"
+    script       = "$HOME/bin/coder stat cpu"
     interval     = 10
     timeout      = 1
   }
@@ -199,7 +135,7 @@ resource "coder_agent" "main" {
   metadata {
     display_name = "RAM Usage"
     key          = "1_ram_usage"
-    script       = "/tmp/coder.??????/coder stat mem"
+    script       = "$HOME/bin/coder stat mem"
     interval     = 10
     timeout      = 1
   }
@@ -207,24 +143,8 @@ resource "coder_agent" "main" {
   metadata {
     display_name = "Home Disk"
     key          = "3_home_disk"
-    script       = "/tmp/coder.??????/coder stat disk --path $HOME"
+    script       = "$HOME/bin/coder stat disk --path $HOME"
     interval     = 60
-    timeout      = 1
-  }
-
-  metadata {
-    display_name = "CPU Usage (Host)"
-    key          = "4_cpu_usage_host"
-    script       = "/tmp/coder.??????/coder stat cpu --host"
-    interval     = 10
-    timeout      = 1
-  }
-
-  metadata {
-    display_name = "Memory Usage (Host)"
-    key          = "5_mem_usage_host"
-    script       = "/tmp/coder.??????/coder stat mem --host"
-    interval     = 10
     timeout      = 1
   }
 
@@ -251,6 +171,9 @@ resource "kubernetes_config_map" "coder-service" {
       #!/usr/bin/with-contenv bash
       export CODER_AGENT_TOKEN="${coder_agent.main.token}"
       export CODER_TELEMETRY="false"
+
+      export BINARY_DIR=$HOME/bin
+      mkdir -pv $BINARY_DIR && chown abc: $BINARY_DIR
       s6-setuidgid abc /custom-services.d/.coder-install.sh
     EOSVC
     ".coder-install.sh" = coder_agent.main.init_script
@@ -269,25 +192,6 @@ resource "kubernetes_config_map" "coder-init" {
       # Required for start-script to work. (Default upstream shell is /bin/false.)
       [ -x "${data.coder_parameter.user_shell.value}" ] && chsh -s "${data.coder_parameter.user_shell.value}" abc
     EOSHELL
-
-    "docker-install.sh" = <<-EOINIT
-      #!/bin/bash
-      set -euo pipefail
-      ${tobool(data.coder_parameter.enable_docker.value) ? "" : "# Docker disabled\nexit 0"}
-
-      # Docker container will fail on first startup until the directory is created
-      # This also force-creates a .dockerignore to prevent Docker uploading itself to itself
-      ${tobool(data.coder_parameter.persist_docker.value) ? "mkdir -p $HOME/workspace/.docker-data || true; chown 1000:1000 $HOME/workspace/.docker-data; echo .docker-data > $HOME/workspace/.dockerignore" : "# empty"}
-
-      # install docker client
-      . /etc/os-release
-      UBUNTU_ARCH="$(dpkg --print-architecture)"
-      apt remove -y docker docker-engine docker.io containerd runc || true
-      curl -fsSLo /tmp/docker-ce-cli.deb https://download.docker.com/linux/ubuntu/dists/$${UBUNTU_CODENAME}/pool/stable/$${UBUNTU_ARCH}/docker-ce-cli_${data.coder_parameter.docker_version.value}~ubuntu.$${VERSION_ID}~$${UBUNTU_CODENAME}_$${UBUNTU_ARCH}.deb
-      curl -fsSLo /tmp/docker-compose-plugin.deb https://download.docker.com/linux/ubuntu/dists/$${UBUNTU_CODENAME}/pool/stable/$${UBUNTU_ARCH}/docker-compose-plugin_${data.coder_parameter.docker_compose_version.value}~ubuntu.$${VERSION_ID}~$${UBUNTU_CODENAME}_$${UBUNTU_ARCH}.deb
-      dpkg -i /tmp/docker-ce-cli.deb /tmp/docker-compose-plugin.deb
-      rm   -f /tmp/docker-ce-cli.deb /tmp/docker-compose-plugin.deb
-    EOINIT
   }
   immutable = true
 }
@@ -366,13 +270,16 @@ resource "kubernetes_pod" "main" {
     hostname                        = "${data.coder_workspace.me.owner}-${data.coder_workspace.me.name}"
     container {
       name              = "dev"
-      image             = "ghcr.io/linuxserver/code-server:${data.coder_parameter.image_version.value}"
+      image             = "${data.coder_parameter.image.value}:${data.coder_parameter.image_version.value}"
       image_pull_policy = "Always"
       port {
         name           = "http"
         container_port = 8443
       }
-      # UID/GID must align with dind-rootless. Hardcoded: https://github.com/docker-library/docker/blob/c13cbee1cfd9d7582f7b2e9f958cf24e39b64715/20.10/dind-rootless/Dockerfile
+      # TODO: Use sysbox or similar to run unprivileged
+      security_context {
+        privileged = true
+      }
       env {
         name  = "PUID"
         value = "1000"
@@ -381,15 +288,14 @@ resource "kubernetes_pod" "main" {
         name  = "PGID"
         value = "1000"
       }
-      # These are LinuxServer addons, not related to enable-docker
+      # These are LinuxServer addons
       env {
         name  = "DOCKER_MODS"
-        value = "linuxserver/mods:universal-package-install"
+        value = tobool(data.coder_parameter.enable_docker.value) ? "linuxserver/mods:universal-docker-in-docker|linuxserver/mods:universal-package-install|" : "linuxserver/mods:universal-package-install"
       }
       env {
         name  = "INSTALL_PACKAGES"
         value = join("|", jsondecode(data.coder_parameter.extra_package_list.value))
-        # tostring(data.coder_parameter.extra_package_list.value)
       }
       env {
         name  = "CODER_TELEMETRY"
@@ -411,7 +317,7 @@ resource "kubernetes_pod" "main" {
       # copied from a cheat in start-script
       #env {
       #  name  = "GIT_SSH_COMMAND"
-      #  value = "/tmp/coder.??????/coder gitssh --"
+      #  value = "$HOME/bin/coder gitssh --"
       #}
       env {
         name  = "SSH_CONNECTION"
@@ -435,33 +341,6 @@ resource "kubernetes_pod" "main" {
         value = "/config/go"
       }
 
-      # To connect to dind:
-      dynamic "env" {
-        # If docker is enabled, add these envs:
-        for_each = tobool(data.coder_parameter.enable_docker.value) ? [
-          {
-            name  = "DOCKER_TLS_CERTDIR"
-            value = "/shared"
-          },
-          {
-            name  = "DOCKER_CONFIG"
-            value = "/shared/client/"
-          },
-          {
-            name  = "DOCKER_HOST"
-            value = "localhost:2376"
-          },
-          {
-            name  = "DOCKER_TLS"
-            value = "true"
-          }
-        ] : []
-        content {
-          name  = env.value["name"]
-          value = env.value["value"]
-        }
-      }
-
       resources {
         requests = {
           cpu    = "10m"
@@ -478,19 +357,13 @@ resource "kubernetes_pod" "main" {
         name       = "home"
         read_only  = false
       }
-      dynamic "volume_mount" {
-        for_each = tobool(data.coder_parameter.enable_docker.value) ? [1] : []
-        content {
-          mount_path = "/shared"
-          name       = "docker-tls"
-          read_only  = false
-        }
-      }
+
       volume_mount {
         mount_path = "/custom-services.d"
         name       = "coder-service"
         read_only  = true
       }
+
       volume_mount {
         mount_path = "/custom-cont-init.d"
         name       = "coder-init"
@@ -498,51 +371,6 @@ resource "kubernetes_pod" "main" {
       }
     }
 
-    dynamic "container" {
-      for_each = data.coder_parameter.enable_docker.value ? [1] : []
-
-      content {
-        name  = "docker"
-        image = "docker:dind-rootless"
-        env {
-          name  = "DOCKER_TLS_CERTDIR"
-          value = "/shared"
-        }
-        # TODO: Use sysbox or similar to run unprivileged
-        security_context {
-          privileged = true
-        }
-
-        resources {
-          requests = {
-            cpu    = "10m"
-            memory = "100Mi"
-          }
-          limits = {
-            cpu    = "1000m"
-            memory = "1Gi"
-          }
-        }
-
-        # Generated certificates
-        volume_mount {
-          mount_path = "/shared"
-          name       = "docker-tls"
-          read_only  = false
-        }
-
-        dynamic "volume_mount" {
-          # This is odd but basically amounts to "if persist-docker, then insert the volume-mount"
-          for_each = data.coder_parameter.persist_docker.value ? [1] : []
-          content {
-            mount_path = "/home/rootless/"
-            name       = "home"
-            sub_path   = "workspace/.docker-data"
-            read_only  = false
-          }
-        }
-      }
-    }
     volume {
       name = "home"
       persistent_volume_claim {
@@ -550,27 +378,7 @@ resource "kubernetes_pod" "main" {
         read_only  = false
       }
     }
-    dynamic "volume" {
-      for_each = data.coder_parameter.enable_docker.value ? [1] : []
-      content {
-        name = "docker-tls"
-        empty_dir {
-          medium     = "Memory"
-          size_limit = "100M"
-        }
-      }
-    }
-    dynamic "volume" {
-      # dind storage (image cache etc)
-      # if enable-docker and NOT persist-docker, then insert the volume
-      for_each = tobool(data.coder_parameter.enable_docker.value) ? (tobool(data.coder_parameter.persist_docker.value) ? [] : [1]) : []
-      content {
-        name = "docker"
-        empty_dir {
-          size_limit = "16Gi"
-        }
-      }
-    }
+
     # Coder agent service
     volume {
       name = "coder-service"
