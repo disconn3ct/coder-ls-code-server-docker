@@ -1,24 +1,28 @@
 ---
 name: Use Code Server to Develop with Docker
 description: A workspace environment with Code Server and Docker.
-tags: [cloud, kubernetes, linuxserver, code-server, vscode, webide, docker, dind, k8s-dind, dind-rootless]
+tags:
+  [
+    cloud,
+    kubernetes,
+    linuxserver,
+    code-server,
+    vscode,
+    webide,
+    docker,
+    dind,
+    k8s-dind,
+    dind-rootless,
+  ]
 ---
 
 # Getting started
 
-This template creates a pod running the [Code-Server](https://github.com/linuxserver/docker-code-server) image from LinuxServer, with Docker support, custom added packages and a [Coder](https://github.com/coder/coder) agent. Docker can safely be reconfigured (enabled/disabled, add/remove persistance) on each launch with the use of parameter files.
+This template creates a pod running the [Code-Server](https://github.com/linuxserver/docker-code-server) image from LinuxServer, with Docker support, custom added packages and a [Coder](https://github.com/coder/coder) agent.
 
 ## Docker
 
-The workspace can optionally include a sidecar running `docker:dind-rootless`, and automatically installs the selected versions of Docker CLI and Compose from https://download.docker.com/linux/ubuntu/dists/
-
-If `enable_docker` is false, the Docker sidecar will not be installed and no Docker or package settings will be changed. It is safe to toggle this setting on existing workspaces. No data is removed when Docker is disabled.
-
-If `persist_docker` is true, Docker data will be stored in your home volume and persist across stops and starts. If it is false, the Docker sidecar will use an `emptydir` for storage instead. Emptydir storage does not count against your home volume, but it is irrevocably lost when the workspace is stopped.
-
-It is safe to toggle `persist_docker` on existing workspaces. Data that was saved while the setting is true is retained when the setting is false. It will appear again when the setting is true.
-
-To completely remove Docker data, first set `persist_docker` to false and then remove `~/workspace/.docker-data` from your workspace terminal.
+The workspace can optionally include the DIND docker-mod from https://github.com/linuxserver/docker-mods/tree/universal-docker-in-docker
 
 ## RBAC
 
