@@ -394,5 +394,24 @@ resource "kubernetes_pod" "main" {
         default_mode = "0555"
       }
     }
+
+    affinity {
+      pod_anti_affinity {
+        preferred_during_scheduling_ignored_during_execution {
+          weight = 100
+          pod_affinity_term {
+            label_selector {
+              match_expressions {
+                key      = "app.kubernetes.io/name"
+                operator = "In"
+                values   = ["pod-gateway", "qbittorrent", "jellyfin"]
+              }
+            }
+            topology_key = "kubernetes.io/hostname"
+            namespaces  = ["gateway-vpn", "gateway-client", "media"]
+          }
+        }
+      }
+    }
   }
 }
