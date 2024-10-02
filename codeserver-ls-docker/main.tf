@@ -411,7 +411,7 @@ resource "kubernetes_pod" "main" {
               }
             }
             topology_key = "kubernetes.io/hostname"
-            namespaces  = ["gateway-vpn", "gateway-client", "media"]
+            namespaces   = ["gateway-vpn", "gateway-client", "media"]
           }
         }
       }
