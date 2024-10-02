@@ -107,7 +107,7 @@ data "coder_workspace" "me" {}
 
 resource "coder_agent" "main" {
   os   = "linux"
-  arch = "arm64"
+  arch = "amd64"
   dir  = "/config/workspace"
   # Runs as `abc` with the user's default shell
   startup_script = data.coder_parameter.dotfiles_uri.value != "" ? "$HOME/bin/coder dotfiles -y ${data.coder_parameter.dotfiles_uri.value}" : null
@@ -268,6 +268,9 @@ resource "kubernetes_pod" "main" {
     automount_service_account_token = false
     enable_service_links            = false
     hostname                        = "${data.coder_workspace.me.owner}-${data.coder_workspace.me.name}"
+    node_selector = {
+      "beta.kubernetes.io/arch" = "amd64"
+    }
     container {
       name              = "dev"
       image             = "${data.coder_parameter.image.value}:${data.coder_parameter.image_version.value}"
