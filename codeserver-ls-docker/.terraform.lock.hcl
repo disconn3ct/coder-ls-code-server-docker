@@ -2,9 +2,11 @@
 # Manual edits may be lost in future updates.
 
 provider "registry.terraform.io/coder/coder" {
-  version = "0.11.1"
+  version     = "0.11.1"
+  constraints = "~> 0.11.0"
   hashes = [
     "h1:PfTSQSrtZep2URxtpZNt8qlAaId7s+7JI5K2Uujw078=",
+    "h1:T1TuqSQCzAmzWQQ5oCw4wb4WiTyXV3Oo0ZxNDUOwHEw=",
     "zh:0dacbf879fbfd988d64a05b639992c8c6be577e451ba6102cc8719e6c43010ca",
     "zh:553b078a2d5a6704753b6acbe82923509d2fbd81c7c197e441c7dd637ea008a0",
     "zh:5830bd13d5de0ed62fdded1e15871e636c4cefca2d2775b05bbbd1991438579e",
@@ -28,6 +30,7 @@ provider "registry.terraform.io/hashicorp/kubernetes" {
   constraints = "~> 2.22"
   hashes = [
     "h1:PTuAVVjCX41j7T2ffWcWZ1/zSY5N/ysHahvdIvw2IKM=",
+    "h1:xyFc77aYkPoU4Xt1i5t0B1IaS8TbTtp9aCSuQKDayII=",
     "zh:10488a12525ed674359585f83e3ee5e74818b5c98e033798351678b21b2f7d89",
     "zh:1102ba5ca1a595f880e67102bbf999cc8b60203272a078a5b1e896d173f3f34b",
     "zh:1347cf958ed3f3f80b3c7b3e23ddda3d6c6573a81847a8ee92b7df231c238bf6",
